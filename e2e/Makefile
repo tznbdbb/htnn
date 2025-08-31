@@ -17,6 +17,7 @@ include ../common.mk
 KUBECTL ?= $(LOCALBIN)/kubectl
 KIND ?= $(LOCALBIN)/kind
 HELM ?= $(LOCALBIN)/helm
+HELM_VERSION ?= v3.17.1
 
 .PHONY: kubectl
 kubectl: $(LOCALBIN)
@@ -30,7 +31,8 @@ kind: $(LOCALBIN)
 # we can't install it via `go install` because a limitation: https://github.com/golang/go/issues/44840
 .PHONY: helm
 helm: $(LOCALBIN)
-	@test -x $(HELM) || curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | USE_SUDO=false HELM_INSTALL_DIR=$(LOCALBIN) bash
+	@test -x $(HELM) || curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | \
+	  USE_SUDO=false HELM_INSTALL_DIR=$(LOCALBIN) bash -s -- -v $(HELM_VERSION)
 
 .PHONY: create-cluster
 create-cluster: kind kubectl
