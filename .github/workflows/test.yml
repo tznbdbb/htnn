@@ -2,12 +2,12 @@ name: test
 
 on:
   push:
-    branches: [ "main", "release/**" ]
+    branches: [ "main", "release/**", "fork-main" ]
     paths-ignore:
     - "site/**"
     - "**/*.md"
   pull_request:
-    branches: [ "main", "release/**" ]
+    branches: [ "main", "release/**", "fork-main" ]
     paths-ignore:
     - "site/**"
     - "**/*.md"

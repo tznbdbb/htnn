@@ -23,6 +23,16 @@ E2E_DIR="$(pwd)"
 install() {
     OPTIONS_DISABLED="$1"
 
+    # Print helm version for debugging
+    echo "--- Helm version ---"
+    $HELM version
+
+    # Install yq for better YAML debugging
+    if ! command -v yq &> /dev/null; then
+        echo "--- Installing yq ---"
+        sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq && sudo chmod +x /usr/bin/yq
+    fi
+
     pushd ../manifests/charts
 
     $HELM dependency update htnn-controller
@@ -41,6 +51,31 @@ install() {
     $HELM install htnn-controller htnn-controller --namespace istio-system --create-namespace --wait $CONTROLLER_VALUES_OPT \
         || exitWithAnalysis
 
+    echo "--- Debugging htnn-gateway installation ---"
+    echo "--- Unpacking htnn-gateway chart for inspection ---"
+    tar -xzf htnn-gateway-*.tgz
+    echo "--- Content of htnn-gateway/Chart.yaml ---"
+    cat htnn-gateway/Chart.yaml
+    echo "--- Content of htnn-gateway/values.yaml ---"
+    cat htnn-gateway/values.yaml
+    echo "--- Content of htnn-gateway/charts/gateway/values.schema.json (the schema causing issues) ---"
+    # The istio/gateway chart is inside the charts dir, we need to check its schema
+    if [ -f "htnn-gateway/charts/gateway/values.schema.json" ]; then
+        cat htnn-gateway/charts/gateway/values.schema.json
+    fi
+
+    echo "--- Running helm template to render final values (best for debugging) ---"
+    # shellcheck disable=SC2086
+    $HELM template htnn-gateway htnn-gateway --namespace istio-system --create-namespace $GATEWAY_VALUES_OPT --validate \
+        || ( \
+            echo "Helm template validation failed. Analyzing computed values for the 'gateway' sub-chart..." && \
+            $HELM template htnn-gateway htnn-gateway --namespace istio-system --create-namespace $GATEWAY_VALUES_OPT > /tmp/template_output.yaml && \
+            echo "--- Computed values for 'gateway' sub-chart: ---" && \
+            yq '.gateway' /tmp/template_output.yaml && \
+            exit 1 \
+           )
+
+    echo "--- Now attempting helm install for htnn-gateway ---"
     # shellcheck disable=SC2086
     $HELM install htnn-gateway htnn-gateway --namespace istio-system --create-namespace $GATEWAY_VALUES_OPT \
         && \
